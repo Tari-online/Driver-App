@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head><script>window.DLV_TILES='https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=pk.eyJ1IjoiaHl0aG1vIiwiYSI6ImNtdnl1NXgwYjBmOWcyeXM5anYzbXlhNW0ifQ.jhAHj4S5W8DFS1ev27YgHw';window.DLV_ATTR='© Mapbox © OpenStreetMap';window.DLV_MBTOKEN='pk.eyJ1IjoiaHl0aG1vIiwiYSI6ImNtdnl1NXgwYjBmOWcyeXM5anYzbXlhNW0ifQ.jhAHj4S5W8DFS1ev27YgHw';</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="السائق">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" id="mf" href="manifest.json">
+<title>تطبيق السائق</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v3.9.0/mapbox-gl.css">
+<style>
+  :root{
+    --bg:#0b1220;--bg2:#101a2e;--card:#16213a;--card2:#1c2947;--line:#26355a;
+    --fg:#f2f5fb;--mut:#8b9ac0;--acc:#f5a524;--acc-fg:#1a1200;
+    --ok:#2fd27a;--ok-fg:#04210f;--info:#4da3ff;--bad:#ff5d6c;
+    --r:18px;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#eef1f7;--bg2:#e4e9f3;--card:#ffffff;--card2:#f3f6fc;--line:#d8dfee;
+      --fg:#0e1930;--mut:#5d6b8c;--acc:#e8960c;--acc-fg:#1a1200;
+      --ok:#14a85c;--ok-fg:#ffffff;--info:#1c6fd1;--bad:#d93a4a;
+    }
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{background:var(--bg)}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:'IBM Plex Sans Arabic',system-ui,-apple-system,Segoe UI,sans-serif;
+    min-height:100dvh;font-size:15px;line-height:1.5;
+    padding-bottom:calc(env(safe-area-inset-bottom,0px) + 2rem)}
+  button{font:inherit;color:inherit}
+  svg{width:1.15em;height:1.15em;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+  /* top bar */
+  .bar{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,var(--bg2),var(--bg));
+    padding:calc(env(safe-area-inset-top,0px) + .8rem) max(16px,env(safe-area-inset-right,0px)) .8rem max(16px,env(safe-area-inset-left,0px));
+    border-bottom:1px solid var(--line)}
+  .bar-in{display:flex;align-items:center;gap:.75rem;max-width:560px;margin:0 auto}
+  .av{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,var(--acc),#ff7a45);color:var(--acc-fg);
+    display:grid;place-items:center;font-weight:700;font-size:1.15rem;flex:none}
+  .who{min-width:0;flex:1}
+  .who b{display:block;font-size:1.02rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .who small{color:var(--mut);font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+  .gps{display:inline-flex;align-items:center;gap:.4rem;border:1px solid var(--line);background:var(--card);
+    border-radius:99px;padding:.45rem .8rem;font-size:.76rem;font-weight:600;color:var(--mut);cursor:pointer;white-space:nowrap}
+  .gps i{width:8px;height:8px;border-radius:50%;background:var(--mut);display:block}
+  .gps.on{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent)}
+  .gps.on i{background:var(--ok);box-shadow:0 0 0 0 var(--ok);animation:pulse 1.8s infinite}
+  .gps.bad{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 45%,transparent)}
+  .gps.bad i{background:var(--bad)}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 60%,transparent)}100%{box-shadow:0 0 0 9px transparent}}
+
+  main{max-width:560px;margin:0 auto;padding:1rem max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px))}
+  .sum{display:flex;align-items:center;justify-content:space-between;color:var(--mut);font-size:.8rem;font-weight:600;margin:.2rem .2rem .8rem}
+  .sum b{color:var(--fg);font-size:1.05rem}
+
+  /* order card */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);margin-bottom:1rem;overflow:hidden}
+  .c-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.9rem 1rem .6rem}
+  .no{font-size:1.35rem;font-weight:700;letter-spacing:.01em}
+  .no small{color:var(--mut);font-size:.72rem;font-weight:500;margin-inline-end:.35rem}
+  .chip{font-size:.72rem;font-weight:700;padding:.3rem .7rem;border-radius:99px;white-space:nowrap}
+  .chip.prep{background:color-mix(in srgb,var(--info) 18%,transparent);color:var(--info)}
+  .chip.ready{background:color-mix(in srgb,var(--acc) 20%,transparent);color:var(--acc)}
+  .chip.out{background:color-mix(in srgb,var(--ok) 20%,transparent);color:var(--ok)}
+
+  .steps{display:flex;align-items:center;padding:.2rem 1rem .9rem;gap:.4rem}
+  .st{display:flex;align-items:center;gap:.4rem;font-size:.7rem;font-weight:600;color:var(--mut)}
+  .st b{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--card2);border:1px solid var(--line);font-size:.68rem}
+  .st.on{color:var(--fg)}.st.on b{background:var(--acc);border-color:var(--acc);color:var(--acc-fg)}
+  .st.done b{background:var(--ok);border-color:var(--ok);color:var(--ok-fg)}
+  .bar2{flex:1;height:2px;background:var(--line);border-radius:2px;min-width:10px}
+  .bar2.done{background:var(--ok)}
+
+  .blk{margin:0 1rem .7rem;background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:.75rem .85rem;display:flex;gap:.7rem;align-items:flex-start}
+  .blk svg{margin-top:.15rem;color:var(--acc)}
+  .blk .t{min-width:0;flex:1}
+  .blk .l{font-size:.7rem;color:var(--mut);font-weight:600;margin-bottom:.1rem}
+  .blk .v{font-weight:600;overflow-wrap:anywhere}
+  .dist{font-size:.74rem;font-weight:700;color:var(--info);white-space:nowrap;align-self:center}
+
+  .pay{margin:0 1rem .8rem;border-radius:14px;padding:.8rem .9rem;display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+  .pay.cash{background:color-mix(in srgb,var(--acc) 15%,transparent);border:1px dashed color-mix(in srgb,var(--acc) 55%,transparent)}
+  .pay.paid{background:color-mix(in srgb,var(--ok) 13%,transparent);border:1px solid color-mix(in srgb,var(--ok) 40%,transparent)}
+  .pay span{font-size:.8rem;font-weight:700}
+  .pay.cash span{color:var(--acc)}.pay.paid span{color:var(--ok)}
+  .pay b{font-size:1.5rem;font-weight:700;direction:ltr;unicode-bidi:isolate}
+  .pay b small{font-size:.75rem;font-weight:600;color:var(--mut);margin-inline-start:.25rem}
+
+  .map{margin:0 1rem .7rem;height:0;overflow:hidden;border-radius:14px;border:1px solid var(--line);transition:height .25s}
+  .map.open{height:210px}
+  .mapbtn{background:none;border:0;color:var(--info);font-weight:600;font-size:.8rem;display:inline-flex;align-items:center;gap:.35rem;padding:.2rem 1rem .6rem;cursor:pointer}
+
+  .acts{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;padding:0 1rem 1rem}
+  .btn{display:flex;align-items:center;justify-content:center;gap:.45rem;border:1px solid var(--line);background:var(--card2);
+    color:var(--fg);border-radius:14px;padding:.85rem .6rem;font-weight:600;font-size:.9rem;text-decoration:none;cursor:pointer;min-height:48px}
+  .btn:active{transform:scale(.98)}
+  .btn.main{grid-column:1/-1;border:0;min-height:56px;font-size:1rem;font-weight:700}
+  .btn.go{background:var(--acc);color:var(--acc-fg)}
+  .btn.off{background:var(--card2);color:var(--mut);border:1px dashed var(--line);cursor:default}
+  .btn[disabled]{opacity:.55}
+
+  /* hold to confirm */
+  .hold{position:relative;overflow:hidden;-webkit-touch-callout:none;-webkit-user-drag:none;background:var(--ok);color:var(--ok-fg);user-select:none;-webkit-user-select:none;touch-action:none}
+  .hold .fill{position:absolute;inset:0;background:rgba(0,0,0,.28);transform:scaleX(0);transform-origin:right center}
+  .hold.go .fill{transform:scaleX(1);transition:transform .8s linear}
+  .hold span{position:relative;display:flex;align-items:center;gap:.5rem}
+  .hint{grid-column:1/-1;text-align:center;font-size:.72rem;color:var(--mut);margin-top:-.2rem}
+
+  .empty{text-align:center;color:var(--mut);padding:3.5rem 1rem}
+  .empty svg{width:56px;height:56px;color:var(--line);stroke-width:1.5;margin-bottom:.8rem}
+  .empty b{display:block;color:var(--fg);font-size:1.05rem;margin-bottom:.3rem}
+  .err{text-align:center;color:var(--bad);padding:3rem 1rem;font-weight:600;line-height:2}
+
+  .toast{position:fixed;left:50%;transform:translateX(-50%) translateY(20px);bottom:calc(env(safe-area-inset-bottom,0px) + 1rem);
+    background:var(--fg);color:var(--bg);padding:.75rem 1.1rem;border-radius:14px;font-weight:600;font-size:.88rem;
+    opacity:0;pointer-events:none;transition:.25s;z-index:95;max-width:calc(100vw - 32px);text-align:center}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .newbanner{position:fixed;top:calc(env(safe-area-inset-top,0px) + .6rem);left:12px;right:12px;z-index:50;background:var(--acc);color:var(--acc-fg);
+    border-radius:16px;padding:.9rem 1rem;font-weight:700;display:none;align-items:center;gap:.6rem;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  .newbanner.show{display:flex}
+  .back{position:fixed;inset:auto 12px calc(env(safe-area-inset-bottom,0px) + .8rem);z-index:40;background:var(--ok);color:var(--ok-fg);
+    border-radius:14px;padding:.8rem 1rem;font-weight:700;text-align:center;display:none}
+  .back.show{display:block}
+  .leaflet-container{font-family:inherit;background:var(--card2)}
+  .pinD{width:16px;height:16px;border-radius:50%;background:var(--bad);border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+  .pinM{width:18px;height:18px;border-radius:50%;background:var(--info);border:3px solid #fff;box-shadow:0 0 0 6px rgba(77,163,255,.28)}
+
+  /* in-page navigation */
+  #nav{position:fixed;inset:0;z-index:70;background:var(--bg);display:none;flex-direction:column}
+  #nav.show{display:flex}
+  #navmap{position:absolute;inset:0}
+  .nvtop{position:absolute;z-index:5;top:calc(env(safe-area-inset-top,0px) + .6rem);left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));
+    background:var(--card);border:1px solid var(--line);border-radius:18px;padding:.8rem 1rem;display:flex;align-items:center;gap:.9rem;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  .nvic{width:52px;height:52px;border-radius:14px;background:var(--acc);color:var(--acc-fg);display:grid;place-items:center;font-size:1.9rem;font-weight:700;flex:none}
+  .nvtx{min-width:0;flex:1}
+  .nvd{font-size:1.35rem;font-weight:700;line-height:1.1}
+  .nvi{font-size:.92rem;color:var(--mut);font-weight:600;overflow-wrap:anywhere}
+  .nvbot{position:absolute;z-index:5;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + .6rem);
+    background:var(--card);border:1px solid var(--line);border-radius:20px;padding:.8rem 1rem;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  .nvst{display:flex;justify-content:space-around;text-align:center;margin-bottom:.7rem}
+  .nvst b{display:block;font-size:1.25rem}.nvst small{color:var(--mut);font-size:.7rem;font-weight:600}
+  .nvbt{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem}
+  .nvbt button,.nvbt a{border:1px solid var(--line);background:var(--card2);color:var(--fg);border-radius:12px;padding:.7rem .3rem;font-weight:600;font-size:.82rem;text-align:center;text-decoration:none;cursor:pointer;display:block}
+  .nvbt .x{background:var(--bad);border-color:var(--bad);color:#fff}
+  .nvrc{position:absolute;z-index:5;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 11rem);width:46px;height:46px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--fg);font-size:1.3rem;display:none}
+  .nvrc.show{display:block}
+  .gmMe{width:46px;height:46px;border-radius:50%;background:rgba(26,115,232,.18);display:grid;place-items:center}
+  .gmMe i{width:30px;height:30px;border-radius:50%;background:#1a73e8;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.45);display:grid;place-items:center}
+  .gmMe i:before{content:"";width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:11px solid #fff;margin-top:-2px}
+  .gmDest{width:34px;height:34px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#e53935;border:3px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,.45)}
+  .nvload{position:absolute;z-index:6;inset:0;display:grid;place-items:center;background:color-mix(in srgb,var(--bg) 85%,transparent);font-weight:700}
+.pwa{margin:10px max(14px,env(safe-area-inset-right)) 0 max(14px,env(safe-area-inset-left));background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.pwa[hidden]{display:none}
+.tabs{display:flex;gap:6px;max-width:560px;margin:12px auto 0;padding:4px;background:var(--card);border:1px solid var(--line);border-radius:14px;width:calc(100% - 28px)}
+.tabs button{flex:1;border:0;background:transparent;color:var(--mut);padding:10px;border-radius:10px;font-weight:700;cursor:pointer}
+.tabs button.on{background:var(--acc);color:var(--acc-fg)}
+.wl-hero{background:linear-gradient(135deg,#1e3a8a,#0b1437);border:1px solid var(--line);border-radius:var(--r);padding:18px;color:#fff;margin-bottom:12px}
+.wl-hero small{opacity:.75;font-size:.78rem}.wl-hero b{display:block;font-size:2rem;line-height:1.2;margin:2px 0}.wl-hero span{opacity:.8;font-size:.8rem}
+.wl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+.wl-grid div{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;text-align:center}
+.wl-grid small{display:block;color:var(--mut);font-size:.7rem}.wl-grid b{display:block;font-size:1.05rem;margin-top:2px}.wl-grid i{font-style:normal;font-size:.68rem;color:var(--mut)}
+.wl-h{color:var(--mut);font-size:.8rem;font-weight:600;margin:4px 4px 8px}
+.wl-row{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:8px}
+.wl-row .n{font-weight:700;min-width:44px}.wl-row .m{flex:1;min-width:0;font-size:.78rem;color:var(--mut)}.wl-row .m div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wl-row .a{font-weight:700;color:var(--ok);white-space:nowrap}
+.pwa-t{font-size:13px;color:var(--mut)}.pwa-b{display:flex;gap:8px;flex-wrap:wrap}
+.pwa-b button{flex:1;min-width:140px;border:0;border-radius:12px;padding:11px 14px;font:inherit;font-weight:700;background:var(--acc);color:var(--acc-fg);cursor:pointer}
+.pwa-b button.sec{background:var(--card2);color:var(--fg);border:1px solid var(--line)}
+</style>
+</head>
+<body>
+<header class="bar"><div class="bar-in">
+  <div class="av" id="av">س</div>
+  <div class="who"><b id="name">تطبيق السائق</b><small id="rest">جاري التحميل…</small></div>
+  <button class="gps" id="gps" type="button"><i></i><span id="gpsT">فعّل الموقع</span></button>
+</div></header>
+<div class="pwa" id="pwa" hidden><div class="pwa-t" id="pwaT"></div><div class="pwa-b"><button type="button" id="pwaInst" hidden>تثبيت التطبيق</button><button type="button" id="pwaPush" hidden>🔔 تفعيل الإشعارات</button></div></div>
+<nav class="tabs" id="tabs"><button type="button" class="on" data-v="orders">الطلبات</button><button type="button" data-v="wallet">المحفظة</button></nav>
+<main>
+  <div class="sum" id="sum" hidden><span>الطلبات الحالية</span><b id="cnt">0</b></div>
+  <div id="wallet" style="display:none"></div>
+  <div id="app"><div class="empty">جاري التحميل…</div></div>
+</main>
+<div class="newbanner" id="nb"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span>وصلك طلب توصيل جديد</span></div>
+<div class="back" id="back">رجعت للصفحة — جاري تحديث موقعك للعميل</div>
+<div id="nav"><div id="navmap"></div>
+  <div class="nvtop"><div class="nvic" id="nvic">↑</div><div class="nvtx"><div class="nvd" id="nvd">—</div><div class="nvi" id="nvi">جاري تحديد المسار…</div></div></div>
+  <button class="nvrc" id="nvrc" type="button" aria-label="recenter">◎</button>
+  <div class="nvbot"><div class="nvst"><div><b id="nvmin">—</b><small>الوقت المتبقي</small></div><div><b id="nvkm">—</b><small>المسافة</small></div><div><b id="nvarr">—</b><small>الوصول</small></div></div>
+    <div class="nvbt"><button type="button" id="nvx" class="x">إنهاء</button><a id="nvg" href="#" target="_blank" rel="noopener">خرائط جوجل</a><button type="button" id="nvre">إعادة المسار</button></div></div>
+  <div class="nvload" id="nvload">جاري تجهيز المسار…</div></div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.9.0/mapbox-gl.js"></script>
+<script>
+const URL_='https://fpgspmhgwcmhaaxsphcd.supabase.co';
+const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwZ3NwbWhnd2NtaGFheHNwaGNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4MjYyMTEsImV4cCI6MjA4MTQwMjIxMX0.QyChZ3agLF1MiTzB8XzbrP4pCgBXsT1i9VWfQqu_VOw';
+const TOKEN=(()=>{let t=new URLSearchParams(location.search).get('t')||'';try{if(t)localStorage.setItem('drv_token',t);else t=localStorage.getItem('drv_token')||'';}catch(e){}return t;})();
+const $=id=>document.getElementById(id);
+let orders=[],known=new Set(),first=true,watchId=null,lastPing=0,wake=null,busy=false,me=null,pos=null,openMaps={},leftForNav=false;
+const maps={};
+
+const IC={
+  pin:'<svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+  note:'<svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+  nav:'<svg viewBox="0 0 24 24"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>',
+  call:'<svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>',
+  go:'<svg viewBox="0 0 24 24"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6h3l2 6M5.5 17.5 9 8h5l3 9.5"/></svg>',
+  ok:'<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>',
+  map:'<svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>',
+  box:'<svg viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg>'
+};
+
+async function rpc(fn,args){
+  const r=await fetch(`${URL_}/rest/v1/rpc/${fn}`,{method:'POST',headers:{apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'},body:JSON.stringify(args)});
+  if(!r.ok){ let m=''; try{m=(await r.json()).message}catch(e){} throw new Error(m||r.status); }
+  const t=await r.text(); return t?JSON.parse(t):null;
+}
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'),3200); }
+function buzz(){ try{ navigator.vibrate&&navigator.vibrate([500,200,500,200,500,200,800]); }catch(e){} }
+function beep(){ buzz();  try{ const a=new (window.AudioContext||window.webkitAudioContext)(); [0,.25,.5].forEach(t=>{const o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=880;g.gain.value=.2;o.start(a.currentTime+t);o.stop(a.currentTime+t+.15);}); }catch(e){} try{navigator.vibrate&&navigator.vibrate([300,150,300,150,300]);}catch(e){} }
+function km(a,b,c,d){const R=6371,r=x=>x*Math.PI/180,dl=r(c-a),dn=r(d-b);const h=Math.sin(dl/2)**2+Math.cos(r(a))*Math.cos(r(c))*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h));}
+function distTxt(o){ if(!pos||o.dest_lat==null) return ''; const d=km(pos.lat,pos.lng,+o.dest_lat,+o.dest_lng); return d<1?Math.round(d*1000)+' م':d.toFixed(1)+' كم'; }
+
+function stepper(o){
+  const out=o.delivery_status==='out', ready=o.status==='Ready';
+  const s1=ready||out?'done':'on', s2=out?'done':(ready?'on':''), s3=out?'on':'';
+  return `<div class="steps">
+    <div class="st ${s1}"><b>${s1==='done'?'✓':'1'}</b>تحضير</div><div class="bar2 ${s1==='done'?'done':''}"></div>
+    <div class="st ${s2}"><b>${s2==='done'?'✓':'2'}</b>استلام</div><div class="bar2 ${out?'done':''}"></div>
+    <div class="st ${s3}"><b>3</b>تسليم</div></div>`;
+}
+
+function card(o){
+  const out=o.delivery_status==='out', ready=o.status==='Ready';
+  const chip=out?['out','في الطريق']:ready?['ready','جاهز للاستلام']:['prep','قيد التحضير'];
+  const cash=/pickup|الدفع عند|cash|نقد/i.test(o.payment_method||'');
+  const dest=`https://www.google.com/maps/dir/?api=1&destination=${o.dest_lat},${o.dest_lng}&travelmode=driving`;
+  const d=distTxt(o);
+  let main;
+  const navBtn=out?`<button class="btn main go" type="button" data-navstart="${o.id}" style="min-height:52px">${IC.nav}ابدأ الملاحة داخل التطبيق</button>`:'';
+  if(out) main=navBtn+`<button class="btn main hold" type="button" data-hold="${o.id}"><i class="fill"></i><span>${IC.ok}اضغط مطولاً لتأكيد التسليم</span></button>`;
+  else if(ready) main=`<button class="btn main go" type="button" data-a="start" data-id="${o.id}">${IC.go}بدأت التوصيل</button>`;
+  else main=`<div class="btn main off">${IC.box}المطعم يجهّز الطلب… بنبلغك</div>`;
+  return `<section class="card" data-oid="${o.id}">
+    <div class="c-head"><div class="no"><small>طلب</small>#${esc(o.order_no)}</div><span class="chip ${chip[0]}">${chip[1]}</span></div>
+    ${stepper(o)}
+    <div class="blk">${IC.pin}<div class="t"><div class="l">عنوان العميل</div><div class="v">${o.dest_details?esc(o.dest_details):'حسب الموقع على الخريطة'}</div></div>${d?`<span class="dist">${d}</span>`:''}</div>
+    ${o.note?`<div class="blk">${IC.note}<div class="t"><div class="l">ملاحظة العميل</div><div class="v">${esc(o.note)}</div></div></div>`:''}
+    <div class="pay ${cash?'cash':'paid'}"><span>${cash?'حصّل من العميل':'مدفوع مسبقاً'}</span><b>${Number(o.total).toFixed(2)}<small>ر.س</small></b></div>
+    <button class="mapbtn" type="button" data-map="${o.id}">${IC.map}<span>${openMaps[o.id]?'إخفاء الخريطة':'عرض الموقع على الخريطة'}</span></button>
+    <div class="map ${openMaps[o.id]?'open':''}" id="map-${o.id}"></div>
+    <div class="acts">
+      ${main}
+      <a class="btn" href="${dest}" target="_blank" rel="noopener" data-nav="1">${IC.nav}الاتجاهات</a>
+      ${o.customer_phone?`<a class="btn" href="tel:${esc(o.customer_phone)}">${IC.call}اتصال</a>`:'<span></span>'}
+      ${out?`<div class="hint">فتح خرائط جوجل يوقف تتبع العميل مؤقتاً — ارجع للصفحة وتتحدث تلقائياً</div>`:''}
+    </div></section>`;
+}
+
+let lastSig='';
+function render(force){
+  const sig=JSON.stringify([orders.map(o=>[o.id,o.status,o.delivery_status,o.total,o.note,o.dest_details,distTxt(o)]),openMaps,me&&me.driver.name]);
+  if(!force&&sig===lastSig) return; lastSig=sig;
+  $('name').textContent=me.driver.name; $('av').textContent=(me.driver.name||'س').trim().charAt(0);
+  $('rest').textContent=me.restaurant||'';
+  $('sum').hidden=!orders.length; $('cnt').textContent=orders.length;
+  if(!orders.length){ $('app').innerHTML=`<div class="empty">${IC.box}<b>ما فيه طلبات حالياً</b>بنبلغك بصوت وإشعار أول ما يوصل طلب جديد</div>`; return; }
+  $('app').innerHTML=orders.map(card).join('');
+  orders.forEach(o=>{ if(openMaps[o.id]) drawMap(o); });
+}
+
+function drawMap(o){
+  const el=$('map-'+o.id); if(!el||typeof L==='undefined'||o.dest_lat==null) return;
+  if(maps[o.id]){ try{maps[o.id].remove();}catch(e){} }
+  const m=L.map(el,{zoomControl:false,attributionControl:true}).setView([+o.dest_lat,+o.dest_lng],15);
+  L.tileLayer(window.DLV_TILES||'https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:(window.DLV_ATTR||'© OpenStreetMap')}).addTo(m);
+  L.marker([+o.dest_lat,+o.dest_lng],{icon:L.divIcon({className:'',html:'<div class="pinD"></div>',iconSize:[16,16],iconAnchor:[8,8]})}).addTo(m);
+  if(pos){
+    L.marker([pos.lat,pos.lng],{icon:L.divIcon({className:'',html:'<div class="pinM"></div>',iconSize:[18,18],iconAnchor:[9,9]})}).addTo(m);
+    L.polyline([[pos.lat,pos.lng],[+o.dest_lat,+o.dest_lng]],{color:'#4da3ff',weight:3,dashArray:'6 8'}).addTo(m);
+    m.fitBounds([[pos.lat,pos.lng],[+o.dest_lat,+o.dest_lng]],{padding:[30,30]});
+  }
+  maps[o.id]=m; setTimeout(()=>m.invalidateSize(),300);
+}
+
+async function load(){
+  if(busy) return;
+  try{
+    const r=await rpc('driver_me',{p_token:TOKEN});
+    if(!r){ $('app').innerHTML=TOKEN?'<div class="err">الرابط غير صالح أو تم إيقاف حسابك.<br>تواصل مع المطعم.</div>':'<div class="err">افتح الرابط الخاص بك الذي أرسله المطعم.<br>الرابط يحتوي على كودك الشخصي.</div>'; return; }
+    me=r; orders=r.orders||[];
+    if(!document.hidden&&orders.length&&Date.now()-(load._seen||0)>15000){ load._seen=Date.now(); rpc('driver_seen',{p_token:TOKEN}).catch(()=>{}); }
+    const ids=new Set(orders.map(o=>o.id));
+    if(!first && orders.some(o=>!known.has(o.id))){
+      beep(); const nb=$('nb'); nb.classList.add('show'); setTimeout(()=>nb.classList.remove('show'),7000);
+      try{ if(Notification.permission==='granted') new Notification('طلب توصيل جديد',{body:'تم تعيين طلب جديد لك'}); }catch(e){}
+    }
+    known=ids; first=false; render(); syncGps();
+    if(NV&&!orders.some(o=>o.id===NV.id&&o.delivery_status==='out')) closeNav();
+  }catch(e){ if(first) $('app').innerHTML='<div class="err">تعذر الاتصال…<br><small>'+esc(e.message)+'</small></div>'; }
+}
+
+function setGps(cls,txt){ $('gps').className='gps '+cls; $('gpsT').textContent=txt; }
+function pingNow(force){
+  if(!pos) return; const now=Date.now(); if(!force&&now-lastPing<5000) return; lastPing=now;
+  orders.filter(o=>o.delivery_status==='out').forEach(o=>rpc('driver_ping',{p_token:TOKEN,p_order_id:o.id,p_lat:pos.lat,p_lng:pos.lng}).catch(()=>{}));
+}
+function syncGps(){
+  const need=orders.some(o=>o.delivery_status==='out');
+  if(need&&watchId===null&&navigator.geolocation){
+    watchId=navigator.geolocation.watchPosition(p=>{
+      pos={lat:p.coords.latitude,lng:p.coords.longitude,heading:p.coords.heading,speed:p.coords.speed};
+      setGps('on','الموقع مشارك'); pingNow(false); if(NV) navUpdate();
+    },()=>setGps('bad','الموقع مرفوض'),{enableHighAccuracy:true,maximumAge:3000,timeout:20000});
+    reqWake();
+  }
+  if(!need&&watchId!==null){ navigator.geolocation.clearWatch(watchId); watchId=null; setGps('on','الموقع جاهز'); try{wake&&wake.release();}catch(e){} }
+}
+function reqWake(){ try{ navigator.wakeLock&&navigator.wakeLock.request('screen').then(w=>wake=w).catch(()=>{}); }catch(e){} }
+
+
+/* ===== in-page navigation (Mapbox GL: heading-up, 3D, traffic style) ===== */
+let NV=null;
+const MBT=window.DLV_MBTOKEN||'';
+const ICON={left:'←',right:'→','slight left':'↖','slight right':'↗','sharp left':'↙','sharp right':'↘',straight:'↑',uturn:'↩'};
+function navIcon(m){ if(!m) return '↑'; if(m.type==='arrive') return '⚑'; if(/roundabout|rotary/.test(m.type)) return '⟳'; return ICON[m.modifier]||'↑'; }
+function fmtD(m){ return m<1000?(Math.max(10,Math.round(m/10)*10))+' م':(m/1000).toFixed(1)+' كم'; }
+function hav(a,b,c,d){ return km(a,b,c,d)*1000; }
+function bearingTo(a,b,c,d){ const r=x=>x*Math.PI/180,y=Math.sin(r(d-b))*Math.cos(r(c)),x=Math.cos(r(a))*Math.sin(r(c))-Math.sin(r(a))*Math.cos(r(c))*Math.cos(r(d-b)); return (Math.atan2(y,x)*180/Math.PI+360)%360; }
+async function fetchRoute(from,dest){
+  const u=`https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${from.lng},${from.lat};${dest[1]},${dest[0]}?steps=true&overview=full&geometries=geojson&language=ar&access_token=${MBT}`;
+  const r=await fetch(u); const d=await r.json();
+  if(d.code!=='Ok'||!d.routes||!d.routes.length) throw new Error(d.code||'route');
+  return d.routes[0];
+}
+function routeData(){ return {type:'Feature',geometry:{type:'LineString',coordinates:NV.pts.map(p=>[p[1],p[0]])}}; }
+function buildRoute(rt){
+  const pts=rt.geometry.coordinates.map(c=>[c[1],c[0]]); const cum=[0];
+  for(let i=1;i<pts.length;i++) cum.push(cum[i-1]+hav(pts[i-1][0],pts[i-1][1],pts[i][0],pts[i][1]));
+  const steps=rt.legs[0].steps; const end=[]; let a=0; steps.forEach(st=>{ a+=st.distance; end.push(a); });
+  NV.pts=pts; NV.cum=cum; NV.steps=steps; NV.end=end; NV.total=rt.distance; NV.dur=rt.duration;
+  const src=NV.map.getSource&&NV.map.getSource('route'); if(src) src.setData(routeData());
+}
+function addRouteLayers(){
+  const m=NV.map;
+  if(!m.getSource('route')) m.addSource('route',{type:'geojson',data:routeData()});
+  // draw ABOVE the road layers (placing it under the labels hid it beneath the roads at street zoom)
+  const W=(a,b,c)=>['interpolate',['exponential',1.5],['zoom'],10,a,16,b,20,c];
+  if(!m.getLayer('route-casing')) m.addLayer({id:'route-casing',type:'line',source:'route',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#ffffff','line-width':W(6,18,40)}});
+  if(!m.getLayer('route-line')) m.addLayer({id:'route-line',type:'line',source:'route',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#1a73e8','line-width':W(4,12,28)}});
+  // Arabic street names where available
+  try{ m.getStyle().layers.forEach(l=>{ if(l.type==='symbol'&&/label/.test(l.id)&&!/shield/.test(l.id)&&l.layout&&l.layout['text-field']) m.setLayoutProperty(l.id,'text-field',['coalesce',['get','name_ar'],['get','name']]); }); }catch(e){}
+}
+async function openNav(id){
+  const o=orders.find(x=>x.id===id);
+  if(!o||o.dest_lat==null||!MBT||typeof mapboxgl==='undefined'||(mapboxgl.supported&&!mapboxgl.supported())) return toast('الملاحة غير متاحة — استخدم خرائط جوجل');
+  $('nav').classList.add('show'); $('nvload').style.display='grid'; $('nvg').href=`https://www.google.com/maps/dir/?api=1&destination=${o.dest_lat},${o.dest_lng}&travelmode=driving`;
+  const here=pos||await new Promise(res=>{ if(!navigator.geolocation) return res(null); navigator.geolocation.getCurrentPosition(p=>res({lat:p.coords.latitude,lng:p.coords.longitude}),()=>res(null),{enableHighAccuracy:true,timeout:12000}); });
+  if(!here){ closeNav(); return toast('فعّل الموقع أولاً'); }
+  pos=here; syncGps();
+  NV={id,dest:[+o.dest_lat,+o.dest_lng],follow:true,lastFetch:Date.now(),off:0,heading:0,prev:null};
+  mapboxgl.accessToken=MBT;
+  try{ if(!window._rtlSet&&mapboxgl.setRTLTextPlugin){ window._rtlSet=true; mapboxgl.setRTLTextPlugin('https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-rtl-text/v0.3.0/mapbox-gl-rtl-text.js',null,true); } }catch(e){}
+  const dark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const m=new mapboxgl.Map({container:'navmap',style:'mapbox://styles/mapbox/navigation-'+(dark?'night':'day')+'-v1',center:[here.lng,here.lat],zoom:16.5,pitch:55,attributionControl:true});
+  NV.map=m; m.resize();
+  const mk=(cls,anchor)=>{ const e=document.createElement('div'); e.className=cls; return new mapboxgl.Marker({element:e,anchor:anchor||'center',rotationAlignment:'viewport',pitchAlignment:'viewport'}); };
+  NV.dm=mk('gmDest','bottom').setLngLat([NV.dest[1],NV.dest[0]]).addTo(m);
+  NV.me=mk('gmMe').setLngLat([here.lng,here.lat]).addTo(m); NV.me.getElement().innerHTML='<i></i>';
+  m.on('dragstart',e=>{ if(e&&e.originalEvent){ NV.follow=false; $('nvrc').classList.add('show'); } });
+  try{ buildRoute(await fetchRoute(here,NV.dest)); }
+  catch(e){ closeNav(); return toast('تعذر تحديد المسار — استخدم خرائط جوجل'); }
+  const ready=()=>{ if(!NV||NV.map!==m) return; addRouteLayers(); $('nvload').style.display='none'; m.resize(); navUpdate(); };
+  if(m.isStyleLoaded&&m.isStyleLoaded()) ready(); else m.once('load',ready);
+  window.addEventListener('resize',()=>{ if(NV&&NV.map) NV.map.resize(); });
+}
+function closeNav(){ $('nav').classList.remove('show'); $('nvrc').classList.remove('show'); if(NV&&NV.map){ try{NV.map.remove();}catch(e){} } NV=null; }
+async function reroute(){
+  if(!NV||!pos||Date.now()-NV.lastFetch<15000) return; NV.lastFetch=Date.now(); NV.off=0;
+  try{ buildRoute(await fetchRoute(pos,NV.dest)); navUpdate(); }catch(e){}
+}
+function navUpdate(){
+  if(!NV||!NV.pts||!pos) return;
+  // heading: GPS compass when moving, otherwise derived from the last movement
+  if(NV.prev&&hav(NV.prev.lat,NV.prev.lng,pos.lat,pos.lng)>6){ NV.heading=bearingTo(NV.prev.lat,NV.prev.lng,pos.lat,pos.lng); NV.prev={lat:pos.lat,lng:pos.lng}; }
+  else if(!NV.prev) NV.prev={lat:pos.lat,lng:pos.lng};
+  if(typeof pos.heading==='number'&&isFinite(pos.heading)&&pos.speed>1) NV.heading=pos.heading;
+  let bi=0,bd=1e12; for(let i=0;i<NV.pts.length;i++){ const d=hav(pos.lat,pos.lng,NV.pts[i][0],NV.pts[i][1]); if(d<bd){bd=d;bi=i;} }
+  const prog=NV.cum[bi]*(NV.total/Math.max(1,NV.cum[NV.cum.length-1]));
+  if(bd>70){ NV.off++; if(NV.off>=3) reroute(); } else NV.off=0;
+  const toDest=hav(pos.lat,pos.lng,NV.dest[0],NV.dest[1]);
+  let s=NV.end.findIndex(e=>e>prog); if(s<0) s=NV.steps.length-1;
+  const nxt=NV.steps[s+1]; const dNext=Math.max(0,NV.end[s]-prog);
+  $('nvic').textContent=navIcon(nxt?nxt.maneuver:{type:'arrive'});
+  $('nvd').textContent=nxt?fmtD(dNext):fmtD(toDest);
+  $('nvi').textContent=nxt?(nxt.maneuver.instruction||''):'وصلت إلى وجهتك';
+  const remain=Math.max(0,NV.total-prog), mins=Math.max(1,Math.round(NV.dur*(remain/Math.max(1,NV.total))/60));
+  $('nvmin').textContent=mins+' د'; $('nvkm').textContent=fmtD(remain);
+  $('nvarr').textContent=new Date(Date.now()+mins*60000).toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
+  NV.me.setLngLat([pos.lng,pos.lat]);
+  const m=NV.map;
+  if(NV.follow){
+    NV.me.setRotation(0);
+    m.easeTo({center:[pos.lng,pos.lat],bearing:NV.heading,pitch:55,zoom:Math.max(m.getZoom(),17),duration:900,offset:[0,Math.round((m.getContainer().clientHeight||600)*0.18)]});
+  } else NV.me.setRotation(NV.heading-m.getBearing());
+}
+$('nvx').onclick=closeNav;
+$('nvre').onclick=async()=>{
+  if(!NV||!pos) return; const b=$('nvre'), t=b.textContent; b.disabled=true; b.textContent='جاري…';
+  try{ buildRoute(await fetchRoute(pos,NV.dest)); NV.lastFetch=Date.now(); NV.off=0; navUpdate(); toast('تم تحديث المسار من موقعك الحالي'); }
+  catch(e){ toast('تعذر تحديث المسار — تأكد من الاتصال'); }
+  b.textContent=t; b.disabled=false;
+};
+$('nvrc').onclick=()=>{ if(NV){ NV.follow=true; $('nvrc').classList.remove('show'); navUpdate(); } };
+$('nvg').addEventListener('click',()=>{ leftForNav=true; pingNow(true); });
+
+/* actions */
+document.addEventListener('click',async e=>{
+  const ns=e.target.closest('button[data-navstart]'); if(ns){ openNav(+ns.dataset.navstart); return; }
+  const nav=e.target.closest('a[data-nav]'); if(nav){ pingNow(true); leftForNav=true; return; }
+  const mb=e.target.closest('button[data-map]');
+  if(mb){ const id=+mb.dataset.map; openMaps[id]=!openMaps[id]; const o=orders.find(x=>x.id===id); render(true); if(openMaps[id]&&o&&!pos&&navigator.geolocation) navigator.geolocation.getCurrentPosition(p=>{pos={lat:p.coords.latitude,lng:p.coords.longitude};render(true);},()=>{}); return; }
+  const b=e.target.closest('button[data-a]'); if(!b) return;
+  try{ Notification.requestPermission&&Notification.permission==='default'&&Notification.requestPermission(); }catch(_){}
+  await act('driver_start',+b.dataset.id,b);
+});
+async function act(fn,id,btn){
+  busy=true; if(btn) btn.disabled=true;
+  try{ await rpc(fn,{p_token:TOKEN,p_order_id:id}); if(fn==='driver_start'){ if(navigator.geolocation) navigator.geolocation.getCurrentPosition(p=>{pos={lat:p.coords.latitude,lng:p.coords.longitude};setGps('on','الموقع مشارك');pingNow(true);},()=>setGps('bad','الموقع مرفوض'),{enableHighAccuracy:true,timeout:15000}); toast('بدأ التوصيل — العميل يشوفك على الخريطة'); } else toast('تم تسجيل التسليم ✓'); }
+  catch(err){ toast('تعذر التنفيذ: '+err.message); }
+  busy=false; await load();
+}
+/* press-and-hold to confirm delivery (prevents accidental taps) */
+(function(){
+  let timer=null,cur=null;
+  const stop=()=>{ clearTimeout(timer); timer=null; if(cur){ cur.classList.remove('go'); cur=null; } };
+  document.addEventListener('pointerdown',e=>{
+    const b=e.target.closest('[data-hold]'); if(!b) return;
+    cur=b; b.classList.add('go'); try{navigator.vibrate&&navigator.vibrate(15);}catch(_){}
+    timer=setTimeout(()=>{ const id=+b.dataset.hold; stop(); try{navigator.vibrate&&navigator.vibrate([40,30,40]);}catch(_){} act('driver_deliver',id,b); },800);
+  });
+  ['pointerup','pointercancel'].forEach(ev=>document.addEventListener(ev,stop));
+  // phones fire a "long-press menu" at ~0.5s, which used to cancel the hold halfway — block it on the button
+  document.addEventListener('contextmenu',e=>{ if(e.target.closest('[data-hold]')) e.preventDefault(); });
+  document.addEventListener('selectstart',e=>{ if(e.target.closest&&e.target.closest('[data-hold]')) e.preventDefault(); });
+})();
+
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden) return;
+  load(); reqWake();
+  if(leftForNav){ leftForNav=false; $('back').classList.add('show'); setTimeout(()=>$('back').classList.remove('show'),3500);
+    if(navigator.geolocation) navigator.geolocation.getCurrentPosition(p=>{pos={lat:p.coords.latitude,lng:p.coords.longitude};pingNow(true);},()=>{},{enableHighAccuracy:true,timeout:10000}); }
+});
+$('gps').addEventListener('click',()=>{
+  if(!navigator.geolocation){ setGps('bad','غير مدعوم'); return; }
+  setGps('','جاري التحديد…');
+  navigator.geolocation.getCurrentPosition(p=>{ pos={lat:p.coords.latitude,lng:p.coords.longitude}; setGps('on','الموقع جاهز'); },
+    e=>setGps('bad',e.code===1?'الموقع مرفوض':'تعذر التحديد'),{enableHighAccuracy:true,timeout:15000});
+});
+async function gpsAuto(){
+  if(!navigator.geolocation||watchId!==null) return;
+  try{
+    const st=await navigator.permissions.query({name:'geolocation'});
+    const apply=()=>{ if(st.state==='granted'){ if(pos) setGps('on','الموقع جاهز'); else navigator.geolocation.getCurrentPosition(p=>{pos={lat:p.coords.latitude,lng:p.coords.longitude};if(watchId===null)setGps('on','الموقع جاهز');},()=>{},{enableHighAccuracy:true,timeout:15000}); }
+      else if(st.state==='denied') setGps('bad','الموقع مرفوض'); };
+    apply(); st.onchange=apply;
+  }catch(e){}
+}
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ gpsAuto(); load(); } });
+gpsAuto();
+load(); setInterval(load,8000);
+
+/* ===== PWA + Push ===== */
+const VAPID='BItSsqFBy3Adl4YuaLe_6I4_VY9qCHUEd2KmSjq01atICO5Z-nH1_helokDm7w_d6vEiDuCW9KpzDL7MSx7ydkU';
+const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const isStandalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+let swReg=null,deferredInstall=null;
+function u8(b){const p='='.repeat((4-b.length%4)%4),r=atob((b+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(r,c=>c.charCodeAt(0));}
+function b64(buf){return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+(function manifest(){
+  try{
+    const base=location.origin+location.pathname.replace(/[^/]*$/,'');
+    const m={name:'تطبيق السائق',short_name:'السائق',lang:'ar',dir:'rtl',display:'standalone',orientation:'portrait',background_color:'#0b1220',theme_color:'#0b1220',
+      start_url:base+(TOKEN?'?t='+encodeURIComponent(TOKEN):''),scope:base,
+      icons:[{src:base+'icon-192.png',sizes:'192x192',type:'image/png',purpose:'any'},{src:base+'icon-512.png',sizes:'512x512',type:'image/png',purpose:'any'},{src:base+'icon-maskable-512.png',sizes:'512x512',type:'image/png',purpose:'maskable'}]};
+    if(TOKEN) $('mf').href=URL.createObjectURL(new Blob([JSON.stringify(m)],{type:'application/manifest+json'}));
+  }catch(e){}
+})();
+async function pushState(){
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)) return 'unsupported';
+  if(Notification.permission==='denied') return 'denied';
+  if(Notification.permission!=='granted') return 'off';
+  try{const r=swReg||await navigator.serviceWorker.ready;const s=await r.pushManager.getSubscription();return s?'on':'off';}catch(e){return 'off';}
+}
+async function saveSub(sub){
+  const j=sub.toJSON();
+  return rpc('driver_push_subscribe',{p_token:TOKEN,p_endpoint:j.endpoint,p_p256dh:j.keys.p256dh,p_auth:j.keys.auth});
+}
+async function enablePush(){
+  try{
+    const perm=await Notification.requestPermission();
+    if(perm!=='granted'){toast('الإشعارات مرفوضة — فعّلها من إعدادات الجهاز');return refreshPwa();}
+    const reg=swReg||await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:u8(VAPID)});
+    await saveSub(sub);
+    toast('تم تفعيل الإشعارات ✓');
+  }catch(e){toast('تعذر تفعيل الإشعارات: '+(e.message||e));}
+  refreshPwa();
+}
+async function refreshPwa(){
+  const box=$('pwa'),t=$('pwaT'),bi=$('pwaInst'),bp=$('pwaPush');
+  bi.hidden=bp.hidden=true;
+  const st=await pushState();
+  const need=[];
+  if(!isStandalone()&&(deferredInstall||isIOS)){
+    if(deferredInstall){bi.hidden=false;need.push('ثبّت التطبيق على شاشتك الرئيسية');}
+    else need.push('للتثبيت: اضغط زر المشاركة ثم «إضافة إلى الشاشة الرئيسية»');
+  }
+  if(st==='off'&&!(isIOS&&!isStandalone())){bp.hidden=false;need.push('فعّل الإشعارات حتى توصلك الطلبات والتطبيق مقفل');}
+  else if(st==='off'&&isIOS) need.push('على الآيفون الإشعارات تشتغل بعد التثبيت على الشاشة الرئيسية');
+  else if(st==='denied') need.push('الإشعارات محظورة — فعّلها من إعدادات المتصفح/الجهاز');
+  t.textContent=need.join(' • ');
+  box.hidden=!need.length;
+  if(st==='on'&&swReg){try{const s=await swReg.pushManager.getSubscription();if(s)saveSub(s).catch(()=>{});}catch(e){}}
+}
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;refreshPwa();});
+window.addEventListener('appinstalled',()=>{deferredInstall=null;refreshPwa();});
+$('pwaInst').onclick=async()=>{if(!deferredInstall)return;deferredInstall.prompt();try{await deferredInstall.userChoice}catch(e){}deferredInstall=null;refreshPwa();};
+$('pwaPush').onclick=enablePush;
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').then(async r=>{swReg=r;
+    try{const c=await caches.open('drv-v3');if(TOKEN)await c.put('./token',new Response(TOKEN));}catch(e){}
+    refreshPwa();}).catch(()=>refreshPwa());
+  navigator.serviceWorker.addEventListener('message',e=>{const m=e.data||{};
+    if(m.type==='refresh') load();
+    if(m.type==='push'){try{beep();}catch(x){} load();}});
+}else refreshPwa();
+
+/* ===== Wallet ===== */
+let view='orders',walletT=0;
+const money=n=>{n=+n||0;return (Math.round(n*100)/100).toLocaleString('en',{minimumFractionDigits:0,maximumFractionDigits:2})};
+function fdate(t){const d=new Date(t);return d.toLocaleDateString('ar-SA-u-nu-latn',{day:'numeric',month:'short'})+' • '+d.toLocaleTimeString('ar-SA-u-nu-latn',{hour:'numeric',minute:'2-digit'});}
+async function loadWallet(){
+  try{
+    const w=await rpc('driver_wallet',{p_token:TOKEN}); if(!w) return;
+    const rows=(w.history||[]).map(h=>`<div class="wl-row"><div class="n">#${esc(h.order_no??'')}</div><div class="m"><div>${esc(h.dest_address||'—')}</div><div>${fdate(h.at)}</div></div><div class="a" style="${h.paid_at?'color:var(--mut)':''}">+${money(h.amount)}${h.paid_at?' ✓':''}</div></div>`).join('');
+    $('wallet').innerHTML=`<div class="wl-hero"><small>إجمالي أرباحك</small><b>${money(w.total.amount)} ر.س</b><span>${w.total.count} توصيلة</span><div style="margin-top:10px;display:flex;gap:14px;font-size:.8rem"><span>المستحق: <b style="display:inline;font-size:1rem;color:#fbbf24">${money(w.unpaid.amount)}</b></span><span>المدفوع: <b style="display:inline;font-size:1rem">${money(w.paid.amount)}</b></span></div></div>
+    <div class="wl-grid"><div><small>اليوم</small><b>${money(w.today.amount)}</b><i>${w.today.count} توصيلة</i></div><div><small>آخر 7 أيام</small><b>${money(w.week.amount)}</b><i>${w.week.count} توصيلة</i></div><div><small>هذا الشهر</small><b>${money(w.month.amount)}</b><i>${w.month.count} توصيلة</i></div></div>
+    <div class="wl-h">سجل التوصيلات</div>${rows||'<div class="empty">لا توجد توصيلات مكتملة بعد</div>'}`;
+  }catch(e){ if(!$('wallet').innerHTML) $('wallet').innerHTML='<div class="err">تعذر تحميل المحفظة</div>'; }
+}
+function setView(v){
+  view=v;
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  $('wallet').style.display=v==='wallet'?'':'none';
+  $('app').style.display=v==='wallet'?'none':'';
+  $('sum').style.display=v==='wallet'?'none':'';
+  if(v==='wallet') loadWallet();
+}
+document.querySelectorAll('#tabs button').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.v)));
+setInterval(()=>{ if(view==='wallet'&&!document.hidden) loadWallet(); },30000);
+</script>
+</body>
+</html>
